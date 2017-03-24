@@ -1,4 +1,7 @@
-import { createStore, applyMiddleware } from 'redux'
+import { createStore, applyMiddleware } from 'redux';
+import logger from 'redux-logger';
+import thunk from 'redux-thunk';
+import fetch from 'node-fetch';
 
 /**
  * actions
@@ -15,6 +18,30 @@ const desc = () => {
     }
 }
 
+const add = (num) => {
+    return {
+        type: "ADD",
+        payload: num
+    }
+}
+
+/**
+ * redux-thunk
+ */
+const asyncAdd = () => {
+    
+    // http://redux.js.org/docs/recipes/ReducingBoilerplate.html#actioncreatorsjs
+
+    // Interpreted by the thunk middleware:
+    return (dispatch, getState) => {
+        console.log("async Action", getState());
+
+        fetch('https://jsonplaceholder.typicode.com/posts/4')
+        .then(res => res.json())
+        .then(json => dispatch(add(json.id)));
+    }
+}
+
 /**
  * reducer
  * @param {*} state 
@@ -27,6 +54,8 @@ const reducer = (state = 0, action) => {
             return state + 1;
         case "DESC":
             return state - 1;
+        case "ADD":
+            return state + action.payload;
         case "ERROR":
             throw new Error();
             break;
@@ -38,33 +67,13 @@ const reducer = (state = 0, action) => {
 /**
  * middlewares
  */
-const logger = ({
-    getState,
-    dispatch
-}) => next => action => {
-    console.log("logger - 1", getState());
-    next(action); //calling the next middleware until reducer is called.
-    console.log("logger - 2", getState());
-}
-
-const errorHandler = ({
-    getState,
-    dispatch
-}) => next => action => {
-    try {
-        next(action);
-    } catch (e) {
-        console.log("Exception!!");
-    }
-}
-
-const middleware = applyMiddleware(logger, errorHandler);
+const middlewares = [thunk, logger];
+const middleware = applyMiddleware(...middlewares);
 
 // http://redux.js.org/docs/api/createStore.html#createstorereducer-preloadedstate-enhancer
 let store = createStore(reducer, 10, middleware);
 // Log the initial state
 console.log("Initialize, ", store.getState());
-console.log("==============")
 
 // Every time the state changes, log it
 // Note that subscribe() returns a function for unregistering the listener
@@ -73,10 +82,5 @@ let unsubscribe = store.subscribe(() =>
 )
 
 store.dispatch(inc());
-console.log("==============");
-store.dispatch({
-    type: "ERROR"
-});
-console.log("==============");
+store.dispatch(asyncAdd());
 store.dispatch(desc());
-console.log("==============");
